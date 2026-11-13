@@ -26,8 +26,8 @@ class IservToAulaCSVconverter:
 
             # Load iServ users and convert them to AULA users
             parsed_input_csv = list(csv.DictReader(cured_raw_input_csv))
-            iserv_user_list = self._load_iserv_csv_entries(parsed_input_csv)
-            converted_user_list: list[AulaUser] = self.convert_iserv_to_aula_user_list(iserv_user_list)
+            iserv_user_list = self.converter._load_iserv_csv_entries(parsed_input_csv)
+            converted_user_list: list[AulaUser] = self.converter.convert_iserv_to_aula_user_list(iserv_user_list)
 
             output_csv_table = self.structure_user_list_as_csv_table(converted_user_list)
 
