@@ -1,10 +1,11 @@
 import csv
 from pathlib import Path
-from models import IservUser, AulaUser
-from services.exceptions import InputFileNotExists
-from services.constants import EMAIL_DOMAIN
 from dataclasses import fields
 import io
+from models import IservUser, AulaUser
+from services.exceptions import InputFileNotExists, InputFileUnexpectedFormat
+from services.constants import EMAIL_DOMAIN
+
 
 class IservToAulaCSVconverter:
     """
@@ -18,7 +19,13 @@ class IservToAulaCSVconverter:
         if not input_path.is_file():
             return InputFileNotExists(
                 "iServ user list was not found in the requested path", 
-                input_path)
+                input_path
+            )
+        if input_path.suffix != ".csv":
+            return InputFileUnexpectedFormat(
+                "iServ user list does not have the correct CSV suffix",
+                input_path
+            )
         
         with open(input_path, "r") as f:
             raw_input_csv: str = self._replace_semicolons(f.read())
@@ -26,16 +33,17 @@ class IservToAulaCSVconverter:
 
             # Load iServ users and convert them to AULA users
             parsed_input_csv = list(csv.DictReader(cured_raw_input_csv))
-            iserv_user_list = self.converter._load_iserv_csv_entries(parsed_input_csv)
+            iserv_user_list = self._load_iserv_csv_entries(parsed_input_csv)
             converted_user_list: list[AulaUser] = self.converter.convert_iserv_to_aula_user_list(iserv_user_list)
 
-            output_csv_table = self.structure_user_list_as_csv_table(converted_user_list)
+            # Turn the AULA user list into a table
+            output_csv_table = self._structure_user_list_as_csv_table(converted_user_list)
 
         with open(output_path, 'w', newline='') as f:
             writer = csv.writer(f, delimiter=';')
             writer.writerows(output_csv_table)
 
-    def structure_user_list_as_csv_table(self, user_list: list[AulaUser]) -> list[list[str]]:
+    def _structure_user_list_as_csv_table(self, user_list: list[AulaUser]) -> list[list[str]]:
         header = [field.name for field in fields(AulaUser)]
         csv_table = [header]
 
@@ -48,7 +56,25 @@ class IservToAulaCSVconverter:
             csv_table.append(user_row)
 
         return csv_table
-        
+
+    def _load_iserv_csv_entries(self, iserv_entries: list[dict]) -> list[IservUser]:
+            converted_iserv_account_list = []
+    
+            for entry in iserv_entries:
+                iserv_user = self._load_iserv_csv_entry(entry)
+                converted_iserv_account_list.append(iserv_user)
+    
+            return converted_iserv_account_list
+    
+    def _load_iserv_csv_entry(self, entry: dict) -> IservUser:
+        user = IservUser(
+            group=entry.get("\ufeffGruppe", "No group"),
+            lastname=entry.get("Nachname", "No last name"),
+            firstname=entry.get("Vorname", "No first name"),
+            account=entry.get("Account", "No account id")
+        )
+
+        return user
 
     def _replace_semicolons(self, input_str: str):
         return input_str.replace(";", ",")
@@ -87,25 +113,6 @@ class IservToAulaUserConverter:
             email=email,
             about_me=about_me
         )
-
-    def _load_iserv_csv_entries(self, iserv_entries: list[dict]) -> list[IservUser]:
-        converted_iserv_account_list = []
-
-        for entry in iserv_entries:
-            iserv_user = self._load_iserv_csv_entry(entry)
-            converted_iserv_account_list.append(iserv_user)
-
-        return converted_iserv_account_list
-
-    def _load_iserv_csv_entry(self, entry: dict) -> IservUser:
-        user = IservUser(
-            group=entry.get("\ufeffGruppe", "No group"),
-            lastname=entry.get("Nachname", "No last name"),
-            firstname=entry.get("Vorname", "No first name"),
-            account=entry.get("Account", "No account id")
-        )
-
-        return user
 
     def _replace_umlaute(self, input_str: str):
         output_str = input_str

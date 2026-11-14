@@ -1,1 +1,1 @@
-EMAIL_DOMAIN = "@gymalf.de"
+EMAIL_DOMAIN = "@school.ex"
